@@ -5,6 +5,7 @@ precision highp float;
 out vec4 outFragColor;
 
 in vec3 vNormalWS;
+in vec3 ViewDirectionWS;
 
 // Uniforms
 struct Material
@@ -26,7 +27,7 @@ vec4 LinearTosRGB( in vec4 value ) {
 void main()
 {
   // **DO NOT** forget to do all your computation in linear space.
-  vec3 albedo = sRGBToLinear(vec4(vNormalWS, 1.0)).rgb;
+  vec3 albedo = sRGBToLinear(vec4(ViewDirectionWS, 1.0)).rgb;
 
   // **DO NOT** forget to apply gamma correction as last step.
   outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));

@@ -11,6 +11,7 @@ in vec3 in_normal;
 
 // Varyings (vertex shader outputs)
 out vec3 vNormalWS;
+out vec3 ViewDirectionWS;
 #ifdef USE_UV
   out vec2 vUv;
 #endif
@@ -21,6 +22,7 @@ struct Camera
   mat4 WS_to_CS; // World-Space to Clip-Space (view * proj)
 };
 uniform Camera uCamera;
+uniform vec3 uCameraPos;
 
 struct Model
 {
@@ -33,5 +35,7 @@ void main()
   vec4 positionLocal = vec4(in_position, 1.0);
   gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
   vNormalWS = (in_normal + 1.0) / 2.0;
+  vec3 ws_position = (uModel.LS_to_WS * positionLocal).xyz;
+  ViewDirectionWS = (normalize(uCameraPos - ws_position) + 1.0)/2.0;
 }
 `;

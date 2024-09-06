@@ -37,6 +37,7 @@ class Application {
       'uMaterial.albedo': vec3.create(),
       'uModel.LS_to_WS': mat4.create(),
       'uCamera.WS_to_CS': mat4.create(),
+      'uCameraPos': this._camera._position,
     };
 
     // Set GUI default values
