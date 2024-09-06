@@ -32,5 +32,6 @@ void main()
 {
   vec4 positionLocal = vec4(in_position, 1.0);
   gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
+  vNormalWS = (in_normal + 1.0) / 2.0;
 }
 `;
