@@ -6,6 +6,7 @@ import { GLContext } from './gl';
 import { PBRShader } from './shader/pbr-shader';
 import { Texture, Texture2D } from './textures/texture';
 import { UniformType } from './types';
+import { PointLight } from './lights/lights';
 
 // GUI elements
 interface GUIProperties {
@@ -25,6 +26,7 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
+  private _lights : [PointLight, PointLight, PointLight];
 
 
   constructor(canvas: HTMLCanvasElement) {
@@ -33,11 +35,12 @@ class Application {
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
+    this._lights = [new PointLight, new PointLight, new PointLight]
     this._uniforms = {
       'uMaterial.albedo': vec3.create(),
       'uModel.LS_to_WS': mat4.create(),
       'uCamera.WS_to_CS': mat4.create(),
-      'uCameraPos': this._camera._position,
+      'uCameraPos': this._camera._position
     };
 
     // Set GUI default values

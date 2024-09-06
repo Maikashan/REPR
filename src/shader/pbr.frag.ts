@@ -12,7 +12,15 @@ struct Material
 {
   vec3 albedo;
 };
+
+struct Light{
+  vec3 pos;
+  vec3 color;
+  float intensity;
+};
+
 uniform Material uMaterial;
+uniform Light uLights[3];
 
 // From three.js
 vec4 sRGBToLinear( in vec4 value ) {
