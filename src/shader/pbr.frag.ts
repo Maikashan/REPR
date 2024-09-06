@@ -20,7 +20,8 @@ struct Light{
 };
 
 uniform Material uMaterial;
-uniform Light uLights[3];
+// uniform Light uLights[3];
+uniform Light uLights[2];
 
 // From three.js
 vec4 sRGBToLinear( in vec4 value ) {
@@ -34,10 +35,19 @@ vec4 LinearTosRGB( in vec4 value ) {
 
 void main()
 {
+
   // **DO NOT** forget to do all your computation in linear space.
-  vec3 albedo = sRGBToLinear(vec4(ViewDirectionWS, 1.0)).rgb;
+  vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
 
   // **DO NOT** forget to apply gamma correction as last step.
   outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
+
+  for (int i = 0; i < 1; i++){
+    vec3 to_light = normalize(uLights[i].pos - gl_FragCoord.xyz);
+    float d = length(to_light);
+    float light_attenuation = clamp(10./d,0.,1.);
+    outFragColor.rgba = outFragColor.rgba * light_attenuation;
+  }
+  
 }
 `;

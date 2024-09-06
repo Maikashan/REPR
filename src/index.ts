@@ -26,7 +26,7 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
-  private _lights : [PointLight, PointLight, PointLight];
+  private _lights : [PointLight, PointLight /*, PointLight */];
 
 
   constructor(canvas: HTMLCanvasElement) {
@@ -35,17 +35,36 @@ class Application {
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
-    this._lights = [new PointLight, new PointLight, new PointLight]
+    this._lights = [new PointLight, new PointLight /*, new PointLight */]
     this._uniforms = {
       'uMaterial.albedo': vec3.create(),
       'uModel.LS_to_WS': mat4.create(),
       'uCamera.WS_to_CS': mat4.create(),
-      'uCameraPos': this._camera._position
+      'uCameraPos': this._camera._position,
     };
+
+    this._lights[0].setColorRGB(1.0,1.0,1.0)
+    this._lights[1].setColorRGB(1.0,1.0,1.0)
+    // this._lights[2].setColorRGB(1.0,1.0,1.0)
+
+    this._lights[0].setIntensity(10);
+    this._lights[1].setIntensity(10);
+    // this._lights[2].setIntensity(10);
+
+    this._lights[0].setPosition(30,0,0);
+    this._lights[1].setPosition(-30,0,0);
+    // this._lights[2].setPosition(0,15,0);
+
+    for (let i = 0; i < this._lights.length; i++){
+      this._uniforms[`uLights[${i}].pos`] = this._lights[i].positionWS;
+      this._uniforms[`uLights[${i}].color`] = this._lights[i].color;
+      this._uniforms[`uLights[${i}].intensity`] = this._lights[i].intensity;
+    }
 
     // Set GUI default values
     this._guiProperties = {
-      albedo: [255, 255, 255],
+      // albedo: [255, 255, 255],
+      albedo: [255, 0, 0],
     };
     // Creates a GUI floating on the upper right side of the page.
     // You are free to do whatever you want with this GUI.
