@@ -1,16 +1,21 @@
-import { GUI } from 'dat.gui';
-import { mat4, vec3 } from 'gl-matrix';
-import { Camera } from './camera';
-import { SphereGeometry } from './geometries/sphere';
-import { GLContext } from './gl';
-import { PBRShader } from './shader/pbr-shader';
-import { Texture, Texture2D } from './textures/texture';
-import { UniformType } from './types';
-import { PointLight } from './lights/lights';
+import { GUI } from "dat.gui";
+import { mat4, vec3 } from "gl-matrix";
+import { Camera } from "./camera";
+import { SphereGeometry } from "./geometries/sphere";
+import { GLContext } from "./gl";
+import { PBRShader } from "./shader/pbr-shader";
+import { Texture, Texture2D } from "./textures/texture";
+import { UniformType } from "./types";
+import { PointLight } from "./lights/lights";
 
 // GUI elements
 interface GUIProperties {
   albedo: number[];
+  light_intensity: number;
+  light_color: number[];
+  light_pos_x: number;
+  light_pos_y: number;
+  light_pos_z: number;
 }
 
 /**
@@ -26,8 +31,7 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
-  private _lights : [PointLight, PointLight /*, PointLight */];
-
+  private _lights: [PointLight, PointLight /*, PointLight */];
 
   constructor(canvas: HTMLCanvasElement) {
     this._context = new GLContext(canvas);
@@ -35,42 +39,53 @@ class Application {
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
-    this._lights = [new PointLight, new PointLight /*, new PointLight */]
+    this._lights = [new PointLight(), new PointLight() /*, new PointLight */];
     this._uniforms = {
-      'uMaterial.albedo': vec3.create(),
-      'uModel.LS_to_WS': mat4.create(),
-      'uCamera.WS_to_CS': mat4.create(),
-      'uCameraPos': this._camera._position,
+      "uMaterial.albedo": vec3.create(),
+      "uModel.LS_to_WS": mat4.create(),
+      "uCamera.WS_to_CS": mat4.create(),
+      uCameraPos: this._camera._position,
     };
 
-    this._lights[0].setColorRGB(1.0,1.0,1.0)
-    this._lights[1].setColorRGB(1.0,1.0,1.0)
+    this._lights[0].setColorRGB(1.0, 1.0, 1.0);
+    // this._lights[1].setColorRGB(1.0,1.0,1.0)
     // this._lights[2].setColorRGB(1.0,1.0,1.0)
 
     this._lights[0].setIntensity(10);
-    this._lights[1].setIntensity(10);
+    // this._lights[1].setIntensity(10);
     // this._lights[2].setIntensity(10);
 
-    this._lights[0].setPosition(30,0,0);
-    this._lights[1].setPosition(-30,0,0);
+    this._lights[0].setPosition(30, 0, 0);
+    // this._lights[1].setPosition(-30,0,0);
     // this._lights[2].setPosition(0,15,0);
 
-    for (let i = 0; i < this._lights.length; i++){
-      this._uniforms[`uLights[${i}].pos`] = this._lights[i].positionWS;
-      this._uniforms[`uLights[${i}].color`] = this._lights[i].color;
-      this._uniforms[`uLights[${i}].intensity`] = this._lights[i].intensity;
+    for (let i = 0; i < this._lights.length; i++) {
+      this._uniforms[`uPointLights[${i}].pos`] = this._lights[i].positionWS;
+      this._uniforms[`uPointLights[${i}].color`] = this._lights[i].color;
+      this._uniforms[`uPointLights[${i}].intensity`] = this._lights[i].intensity;
     }
 
     // Set GUI default values
     this._guiProperties = {
       // albedo: [255, 255, 255],
       albedo: [255, 0, 0],
+      light_intensity: 10,
+      light_color: [255, 255, 255],
+      light_pos_x: 10,
+      light_pos_y: 0,
+      light_pos_z: 0,
     };
+
     // Creates a GUI floating on the upper right side of the page.
     // You are free to do whatever you want with this GUI.
     // It's useful to have parameters you can dynamically change to see what happens.
     const gui = new GUI();
-    gui.addColor(this._guiProperties, 'albedo');
+    gui.addColor(this._guiProperties, "albedo");
+    gui.addColor(this._guiProperties, "light_color");
+    gui.add(this._guiProperties, "light_intensity");
+    gui.add(this._guiProperties, "light_pos_x");
+    gui.add(this._guiProperties, "light_pos_y");
+    gui.add(this._guiProperties, "light_pos_z");
   }
 
   /**
@@ -82,7 +97,7 @@ class Application {
 
     // Example showing how to load a texture and upload it to GPU.
     this._textureExample = await Texture2D.load(
-      'assets/ggx-brdf-integrated.png'
+      "assets/ggx-brdf-integrated.png"
     );
     if (this._textureExample !== null) {
       this._context.uploadTexture(this._textureExample);
@@ -91,11 +106,31 @@ class Application {
     }
 
     // Handle keyboard and mouse inputs to translate and rotate camera.
-    canvas.addEventListener('keydown', this._camera.onKeyDown.bind(this._camera), true);
-    canvas.addEventListener('pointerdown', this._camera.onPointerDown.bind(this._camera), true);
-    canvas.addEventListener('pointermove', this._camera.onPointerMove.bind(this._camera), true);
-    canvas.addEventListener('pointerup', this._camera.onPointerUp.bind(this._camera), true);
-    canvas.addEventListener('pointerleave', this._camera.onPointerUp.bind(this._camera), true);
+    canvas.addEventListener(
+      "keydown",
+      this._camera.onKeyDown.bind(this._camera),
+      true
+    );
+    canvas.addEventListener(
+      "pointerdown",
+      this._camera.onPointerDown.bind(this._camera),
+      true
+    );
+    canvas.addEventListener(
+      "pointermove",
+      this._camera.onPointerMove.bind(this._camera),
+      true
+    );
+    canvas.addEventListener(
+      "pointerup",
+      this._camera.onPointerUp.bind(this._camera),
+      true
+    );
+    canvas.addEventListener(
+      "pointerleave",
+      this._camera.onPointerUp.bind(this._camera),
+      true
+    );
   }
 
   /**
@@ -122,15 +157,35 @@ class Application {
     const props = this._guiProperties;
 
     // Set the albedo uniform using the GUI value
-    this._uniforms['uMaterial.albedo'] = vec3.fromValues(
+    this._uniforms["uMaterial.albedo"] = vec3.fromValues(
       props.albedo[0] / 255,
       props.albedo[1] / 255,
-      props.albedo[2] / 255);
+      props.albedo[2] / 255
+    );
 
+    this._uniforms["uPointLights[0].pos"] = vec3.fromValues(
+      props.light_pos_x,
+      props.light_pos_y,
+      props.light_pos_z
+    );
+
+    this._uniforms["uPointLights[0].color"] = vec3.fromValues(
+      props.light_color[0] / 255,
+      props.light_color[1] / 255,
+      props.light_color[2] / 255
+    );
+
+    this._uniforms["uPointLights[0].intensity"] = props.light_intensity;
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
-    const aspect = this._context.gl.drawingBufferWidth / this._context.gl.drawingBufferHeight;
-    let WS_to_CS = this._uniforms['uCamera.WS_to_CS'] as mat4;
-    mat4.multiply(WS_to_CS, this._camera.computeProjection(aspect), this._camera.computeView());
+    const aspect =
+      this._context.gl.drawingBufferWidth /
+      this._context.gl.drawingBufferHeight;
+    let WS_to_CS = this._uniforms["uCamera.WS_to_CS"] as mat4;
+    mat4.multiply(
+      WS_to_CS,
+      this._camera.computeProjection(aspect),
+      this._camera.computeView()
+    );
 
     // Draw the 5x5 grid of spheres
     const rows = 5;
@@ -138,7 +193,6 @@ class Application {
     const spacing = this._geometry.radius * 2.5;
     for (let r = 0; r < rows; ++r) {
       for (let c = 0; c < columns; ++c) {
-
         // Set Local-Space to World-Space transformation matrix (a.k.a model).
         const WsSphereTranslation = vec3.fromValues(
           (c - columns * 0.5) * spacing + spacing * 0.5,
@@ -155,7 +209,7 @@ class Application {
   }
 }
 
-const canvas = document.getElementById('main-canvas') as HTMLCanvasElement;
+const canvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const app = new Application(canvas as HTMLCanvasElement);
 app.init();
 
