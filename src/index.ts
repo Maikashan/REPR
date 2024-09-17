@@ -6,7 +6,7 @@ import { GLContext } from "./gl";
 import { PBRShader } from "./shader/pbr-shader";
 import { Texture, Texture2D } from "./textures/texture";
 import { UniformType } from "./types";
-import { PointLight } from "./lights/lights";
+import { DirectionalLight, PointLight } from "./lights/lights";
 
 // GUI elements
 interface GUIProperties {
@@ -31,7 +31,8 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
-  private _lights: [PointLight, PointLight /*, PointLight */];
+  private _point_lights: [PointLight, PointLight /*, PointLight */];
+  private _direct_lights: [DirectionalLight, DirectionalLight/*, PointLight */];
 
   constructor(canvas: HTMLCanvasElement) {
     this._context = new GLContext(canvas);
@@ -39,7 +40,8 @@ class Application {
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
-    this._lights = [new PointLight(), new PointLight() /*, new PointLight */];
+    this._point_lights = [new PointLight(), new PointLight() /*, new PointLight */];
+    this._direct_lights = [new DirectionalLight(), new DirectionalLight() /*, new PointLight */];
     this._uniforms = {
       "uMaterial.albedo": vec3.create(),
       "uModel.LS_to_WS": mat4.create(),
@@ -47,29 +49,38 @@ class Application {
       uCameraPos: this._camera._position,
     };
 
-    this._lights[0].setColorRGB(1.0, 1.0, 1.0);
+    this._point_lights[0].setColorRGB(1.0, 1.0, 1.0);
+    this._direct_lights[0].setColorRGB(1.0, 1.0, 1.0);
     // this._lights[1].setColorRGB(1.0,1.0,1.0)
     // this._lights[2].setColorRGB(1.0,1.0,1.0)
 
-    this._lights[0].setIntensity(10);
+    this._point_lights[0].setIntensity(100);
+    this._direct_lights[0].setIntensity(0.5);
     // this._lights[1].setIntensity(10);
     // this._lights[2].setIntensity(10);
 
-    this._lights[0].setPosition(30, 0, 0);
+    this._point_lights[0].setPosition(30, 0, 0);
+    this._direct_lights[0].setDirection(0, 1, 0);
     // this._lights[1].setPosition(-30,0,0);
     // this._lights[2].setPosition(0,15,0);
 
-    for (let i = 0; i < this._lights.length; i++) {
-      this._uniforms[`uPointLights[${i}].pos`] = this._lights[i].positionWS;
-      this._uniforms[`uPointLights[${i}].color`] = this._lights[i].color;
-      this._uniforms[`uPointLights[${i}].intensity`] = this._lights[i].intensity;
+    for (let i = 0; i < this._point_lights.length; i++) {
+      this._uniforms[`uPointLights[${i}].pos`] = this._point_lights[i].positionWS;
+      this._uniforms[`uPointLights[${i}].color`] = this._point_lights[i].color;
+      this._uniforms[`uPointLights[${i}].intensity`] = this._point_lights[i].intensity;
+    }
+
+    for (let i = 0; i < this._direct_lights.length; i++) {
+      this._uniforms[`uDirectLights[${i}].dir`] = this._direct_lights[i].directionWS;
+      this._uniforms[`uDirectLights[${i}].color`] = this._direct_lights[i].color;
+      this._uniforms[`uDirectLights[${i}].intensity`] = this._direct_lights[i].intensity;
     }
 
     // Set GUI default values
     this._guiProperties = {
       // albedo: [255, 255, 255],
       albedo: [255, 0, 0],
-      light_intensity: 10,
+      light_intensity: 100,
       light_color: [255, 255, 255],
       light_pos_x: 10,
       light_pos_y: 0,
