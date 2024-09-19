@@ -36,7 +36,7 @@ void main()
   vec4 positionLocal = vec4(in_position, 1.0);
   gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
   vWorldPos = (uModel.LS_to_WS * positionLocal).xyz;
-  vNormalWS = (in_normal + 1.0) / 2.0;
+  vNormalWS = normalize(in_normal);
   ViewDirectionWS = normalize(uCameraPos - vWorldPos);
 }
 `;

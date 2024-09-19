@@ -31,35 +31,43 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
-  private _point_lights: [PointLight, PointLight /*, PointLight */];
+  private _point_lights: [PointLight, PointLight , PointLight, PointLight ];
   private _direct_lights: [DirectionalLight, DirectionalLight/*, PointLight */];
 
   constructor(canvas: HTMLCanvasElement) {
     this._context = new GLContext(canvas);
-    this._camera = new Camera(0.0, 0.0, 18.0);
+    this._camera = new Camera(0.0, 0.0, 30.0);
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
-    this._point_lights = [new PointLight(), new PointLight() /*, new PointLight */];
+    this._point_lights = [new PointLight(), new PointLight() , new PointLight(), new PointLight()];
     this._direct_lights = [new DirectionalLight(), new DirectionalLight() /*, new PointLight */];
     this._uniforms = {
       "uMaterial.albedo": vec3.create(),
+      "uMaterial.roughness" : 0.25,
       "uModel.LS_to_WS": mat4.create(),
       "uCamera.WS_to_CS": mat4.create(),
       uCameraPos: this._camera._position,
     };
 
     this._point_lights[0].setColorRGB(1.0, 1.0, 1.0);
+    this._point_lights[1].setColorRGB(1.0, 1.0, 1.0);
+    this._point_lights[2].setColorRGB(1.0, 1.0, 1.0);
+    this._point_lights[3].setColorRGB(1.0, 1.0, 1.0);
     this._direct_lights[0].setColorRGB(1.0, 1.0, 1.0);
-    // this._lights[1].setColorRGB(1.0,1.0,1.0)
-    // this._lights[2].setColorRGB(1.0,1.0,1.0)
 
-    this._point_lights[0].setIntensity(100);
+    this._point_lights[0].setIntensity(500);
+    this._point_lights[1].setIntensity(500);
+    this._point_lights[2].setIntensity(500);
+    this._point_lights[3].setIntensity(500);
     this._direct_lights[0].setIntensity(0.5);
     // this._lights[1].setIntensity(10);
     // this._lights[2].setIntensity(10);
 
-    this._point_lights[0].setPosition(30, 0, 0);
+    this._point_lights[0].setPosition(-5, -5, 5);
+    this._point_lights[1].setPosition(-5, 5, 5);
+    this._point_lights[2].setPosition(5, -5, 5);
+    this._point_lights[3].setPosition(5, 5, 5);
     this._direct_lights[0].setDirection(0, 1, 0);
     // this._lights[1].setPosition(-30,0,0);
     // this._lights[2].setPosition(0,15,0);
@@ -79,12 +87,12 @@ class Application {
     // Set GUI default values
     this._guiProperties = {
       // albedo: [255, 255, 255],
-      albedo: [255, 0, 0],
-      light_intensity: 100,
+      albedo: [255, 255, 255],
+      light_intensity: 1000,
       light_color: [255, 255, 255],
-      light_pos_x: 10,
-      light_pos_y: 0,
-      light_pos_z: 0,
+      light_pos_x: -5,
+      light_pos_y: -5,
+      light_pos_z: 5,
     };
 
     // Creates a GUI floating on the upper right side of the page.
@@ -212,6 +220,8 @@ class Application {
         );
         const LS_to_WS = this._uniforms["uModel.LS_to_WS"] as mat4;
         mat4.fromTranslation(LS_to_WS, WsSphereTranslation);
+        this._uniforms["uMaterial.roughness"] = c * 0.25;
+        this._uniforms["uMaterial.metalness"] = r * 0.25;
 
         // Draw the triangles
         this._context.draw(this._geometry, this._shader, this._uniforms);
