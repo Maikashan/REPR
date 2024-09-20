@@ -16,6 +16,7 @@ interface GUIProperties {
   light_pos_x: number;
   light_pos_y: number;
   light_pos_z: number;
+  indirect_lighting: boolean;
 }
 
 /**
@@ -93,6 +94,7 @@ class Application {
       light_pos_x: -5,
       light_pos_y: -5,
       light_pos_z: 5,
+      indirect_lighting: false,
     };
 
     // Creates a GUI floating on the upper right side of the page.
@@ -105,6 +107,7 @@ class Application {
     gui.add(this._guiProperties, "light_pos_x");
     gui.add(this._guiProperties, "light_pos_y");
     gui.add(this._guiProperties, "light_pos_z");
+    gui.add(this._guiProperties, "indirect_lighting");
   }
 
   /**
@@ -123,6 +126,14 @@ class Application {
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
       this._uniforms["uTextureDiffuse"] = this._textureExample;
+    }
+
+    this._textureExample = await Texture2D.load(
+      "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
+    );
+    if (this._textureExample !== null) {
+      this._context.uploadTexture(this._textureExample);
+      this._uniforms["uTextureSpecular"] = this._textureExample;
     }
 
     // Handle keyboard and mouse inputs to translate and rotate camera.
@@ -196,6 +207,8 @@ class Application {
     );
 
     this._uniforms["uPointLights[0].intensity"] = props.light_intensity;
+
+    this._uniforms["uIndirect"] = props.indirect_lighting;
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
     const aspect =
       this._context.gl.drawingBufferWidth /

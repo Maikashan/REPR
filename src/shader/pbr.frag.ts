@@ -35,6 +35,9 @@ uniform Material uMaterial;
 uniform PointLight uPointLights[4];
 uniform DirectLight uDirectLights[2];
 uniform sampler2D uTextureDiffuse;
+uniform sampler2D uTextureSpecular;
+uniform bool uIndirect;
+uniform bool uDirect;
 
 
 vec3 calcPointLight(vec3 to_light, float d, int i)
@@ -122,21 +125,34 @@ vec3 getFromTexture(sampler2D ourTexture, vec3 normal){
   return RGBMDecode(texture(ourTexture, normalized_polar_normal));
 }
 
-vec3 pointLight(int i, vec3 albedo){
-
+vec3 pointLight(int i, vec3 albedo, bool indirect){
+  // Computing the vector w_i and w_o, as well as the distance to the light
   vec3 to_light =  uPointLights[i].pos - vWorldPos;
   float d = length(to_light);
   vec3 w_i = normalize(to_light);
   vec3 w_o = ViewDirectionWS;
+  // Computing ks from the metalness
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, w_i, w_o);
-  vec3 specular = ks * specular_component(w_i, w_o);
-  vec3 diffuse = albedo * (1.0 - ks) * getFromTexture(uTextureDiffuse, vNormalWS);
-  vec3 inRadiance = calcPointLight(w_i,d,i);
-  float cosTheta = max(dot(vNormalWS, w_i),0.0);
-  
+  // Computing the specular component
 
-  return diffuse* inRadiance * cosTheta;
+  vec3 specular = vec3(0.0);
+  // Computing the diffuse component
+  vec3 diffuse = vec3(0.0);
+  if (indirect){
+    diffuse = albedo * (1.0 - ks) * getFromTexture(uTextureDiffuse, vNormalWS);
+    specular = vec3(0.0);//ks * specular_component(w_i, w_o);
+  }
+  else
+  {
+    diffuse = albedo * (1.0 - ks) * diffuse_component(albedo);
+    specular = ks * specular_component(w_i, w_o);
+  }
+  // Computing the inRadiance
+  vec3 inRadiance = calcPointLight(w_i,d,i);
+  // Computing the impact of the light
+  float cosTheta = max(dot(vNormalWS, w_i),0.0);
+  return (diffuse + specular)* inRadiance * cosTheta;
 }
 
 vec3 directLight(int i, vec3 albedo){
@@ -160,7 +176,7 @@ void main()
   
   for (int i = 0; i < 4; i++){
 
-  radiance += pointLight(i, albedo);
+  radiance += pointLight(i, albedo,uIndirect);
   // **DO NOT** forget to apply gamma correction as last step.
   // outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
   }
