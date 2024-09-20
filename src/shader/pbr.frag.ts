@@ -2,6 +2,7 @@ export default `
 precision highp float;
 
 #define M_PI 3.1415926535897932384626433832795
+#define EPSILON 0.000001
 
 // Fragment shader output
 out vec4 outFragColor;
@@ -33,6 +34,7 @@ struct DirectLight{
 uniform Material uMaterial;
 uniform PointLight uPointLights[4];
 uniform DirectLight uDirectLights[2];
+uniform sampler2D uTexture;
 
 
 vec3 calcPointLight(vec3 to_light, float d, int i)
@@ -55,31 +57,32 @@ vec3 diffuse_component(vec3 albedo){
 }
 
 vec3 fresnel_shlick(vec3 f0, vec3 w_i, vec3 w_o){
-  vec3 h = (w_i + w_o) /length(w_i + w_o) ;
-  float WOdotH = dot(w_o, h);
+  vec3 h = normalize(w_i + w_o);
+  float WOdotH = max(dot(w_o, h),0.0);
   return f0 + (1.0 - f0) * pow(1.0 - WOdotH, 5.0);
 }
 
 float G_shlick(vec3 v,float k){
-  return dot(vNormalWS, v) / (dot(vNormalWS, v) * (1.0-k) + k);
+  float NdotV = max(dot(vNormalWS, v),0.0);
+  return NdotV / ((NdotV * (1.0-k) + k) + EPSILON);
 }
 
 float shadowing_shlick(vec3 w_i,vec3 w_o){
   float k = pow(uMaterial.roughness + 1.0,2.0) / 8.0;
   float res = G_shlick(w_o, k) * G_shlick(w_i,k);
-  return res,1.0;
+  return res;
 }
 
 float normalDistribFunction(vec3 w_i, vec3 w_o){
   vec3 h = normalize(w_i + w_o);
   float alpha2 = pow(uMaterial.roughness, 2.0);
-  float NdotH = dot(vNormalWS, h);
-  return  alpha2 / (M_PI * pow(pow(NdotH,2.0) *(alpha2- 1.0) + 1.0,2.0));
+  float NdotH = max(dot(vNormalWS, h),0.0);
+  return  alpha2 / ((M_PI * pow(pow(NdotH,2.0) *(alpha2- 1.0) + 1.0,2.0)) + EPSILON);
 }
 
 float specular_component(vec3 w_i,vec3 w_o){
-  float num = shadowing_shlick(w_i,w_o)* normalDistribFunction(w_i, w_o);
-  float denum = 4.0 * dot(w_o, vNormalWS) * dot(w_i, vNormalWS);
+  float num = shadowing_shlick(w_i,w_o) * normalDistribFunction(w_i, w_o);
+  float denum = 4.0 * max(dot(w_o, vNormalWS),0.0) * max(dot(w_i, vNormalWS),0.0) + EPSILON;
   return  num / denum;
 }
 
@@ -93,8 +96,32 @@ vec4 LinearTosRGB( in vec4 value ) {
 	return vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );
 }
 
+vec3 RGBMDecode(vec4 rgbm) {
+  return 6.0 * rgbm.rgb * rgbm.a;
+}
 
-// Demander au prof si c'est normal si metalness == 0 et roughness == 0 -> noir
+vec2 cartesianToPolar(vec3 cartesian) {
+    // Compute azimuthal angle, in [-PI, PI]
+    float phi = atan(cartesian.z, cartesian.x);
+    // Compute polar angle, in [-PI/2, PI/2]
+    float theta = asin(cartesian.y);
+    return vec2(phi, theta);
+}
+
+vec2 remapPolar(vec2 polar){
+  float phi = polar.x;
+  float theta = polar.y;
+  phi = (phi + M_PI) / (2.0 * M_PI);
+  theta = (theta + (M_PI / 2.0)) / M_PI;
+  return vec2(phi, theta);
+}
+
+vec4 getFromTexture(sampler2D ourTexture, vec3 normal){
+  vec2 polar_normal = cartesianToPolar(normal);
+  vec2 normalized_polar_normal = remapPolar(polar_normal);
+  return texture(ourTexture, normalized_polar_normal);
+}
+
 vec3 pointLight(int i, vec3 albedo){
 
   vec3 to_light =  uPointLights[i].pos - vWorldPos;
@@ -106,7 +133,7 @@ vec3 pointLight(int i, vec3 albedo){
   vec3 specular = ks * specular_component(w_i, w_o);
   vec3 diffuse = diffuse_component(albedo) * (1.0 - ks);
   vec3 inRadiance = calcPointLight(w_i,d,i);
-  float cosTheta = dot(vNormalWS, w_i);
+  float cosTheta = max(dot(vNormalWS, w_i),0.0);
   return (diffuse + specular)* inRadiance * cosTheta;
 }
 
@@ -117,7 +144,7 @@ vec3 directLight(int i, vec3 albedo){
   vec3 specular = ks * specular_component(w_i, w_o);
   vec3 diffuse = diffuse_component(albedo) * (1.0 - ks);
   vec3 inRadiance =  calcDirectLight(w_i,i);
-  float cosTheta = dot(vNormalWS, w_i);
+  float cosTheta = max(dot(vNormalWS, w_i),0.0);
   return (diffuse + specular)* inRadiance * cosTheta;
 }
 

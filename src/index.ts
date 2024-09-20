@@ -122,6 +122,7 @@ class Application {
       this._context.uploadTexture(this._textureExample);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
+      this._uniforms["uTexture"] = this._textureExample;
     }
 
     // Handle keyboard and mouse inputs to translate and rotate camera.
@@ -221,7 +222,7 @@ class Application {
         const LS_to_WS = this._uniforms["uModel.LS_to_WS"] as mat4;
         mat4.fromTranslation(LS_to_WS, WsSphereTranslation);
         this._uniforms["uMaterial.roughness"] = c * 0.15 + 0.01;
-        this._uniforms["uMaterial.metalness"] = r * 0.21 + 0.04;
+        this._uniforms["uMaterial.metalness"] = r * 0.2 + 0.04;
 
         // Draw the triangles
         this._context.draw(this._geometry, this._shader, this._uniforms);
