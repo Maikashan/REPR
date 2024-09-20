@@ -88,7 +88,7 @@ class Application {
     this._guiProperties = {
       // albedo: [255, 255, 255],
       albedo: [255, 255, 255],
-      light_intensity: 1000,
+      light_intensity: 500,
       light_color: [255, 255, 255],
       light_pos_x: -5,
       light_pos_y: -5,
@@ -116,13 +116,13 @@ class Application {
 
     // Example showing how to load a texture and upload it to GPU.
     this._textureExample = await Texture2D.load(
-      "assets/ggx-brdf-integrated.png"
+      "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
     );
     if (this._textureExample !== null) {
       this._context.uploadTexture(this._textureExample);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
-      this._uniforms["uTexture"] = this._textureExample;
+      this._uniforms["uTextureDiffuse"] = this._textureExample;
     }
 
     // Handle keyboard and mouse inputs to translate and rotate camera.
@@ -222,7 +222,7 @@ class Application {
         const LS_to_WS = this._uniforms["uModel.LS_to_WS"] as mat4;
         mat4.fromTranslation(LS_to_WS, WsSphereTranslation);
         this._uniforms["uMaterial.roughness"] = c * 0.15 + 0.01;
-        this._uniforms["uMaterial.metalness"] = r * 0.2 + 0.04;
+        this._uniforms["uMaterial.metalness"] = r * 0.23 + 0.04;
 
         // Draw the triangles
         this._context.draw(this._geometry, this._shader, this._uniforms);

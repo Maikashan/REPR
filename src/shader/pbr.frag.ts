@@ -34,7 +34,7 @@ struct DirectLight{
 uniform Material uMaterial;
 uniform PointLight uPointLights[4];
 uniform DirectLight uDirectLights[2];
-uniform sampler2D uTexture;
+uniform sampler2D uTextureDiffuse;
 
 
 vec3 calcPointLight(vec3 to_light, float d, int i)
@@ -116,10 +116,10 @@ vec2 remapPolar(vec2 polar){
   return vec2(phi, theta);
 }
 
-vec4 getFromTexture(sampler2D ourTexture, vec3 normal){
+vec3 getFromTexture(sampler2D ourTexture, vec3 normal){
   vec2 polar_normal = cartesianToPolar(normal);
   vec2 normalized_polar_normal = remapPolar(polar_normal);
-  return texture(ourTexture, normalized_polar_normal);
+  return RGBMDecode(texture(ourTexture, normalized_polar_normal));
 }
 
 vec3 pointLight(int i, vec3 albedo){
@@ -131,10 +131,12 @@ vec3 pointLight(int i, vec3 albedo){
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, w_i, w_o);
   vec3 specular = ks * specular_component(w_i, w_o);
-  vec3 diffuse = diffuse_component(albedo) * (1.0 - ks);
+  vec3 diffuse = albedo * (1.0 - ks) * getFromTexture(uTextureDiffuse, vNormalWS);
   vec3 inRadiance = calcPointLight(w_i,d,i);
   float cosTheta = max(dot(vNormalWS, w_i),0.0);
-  return (diffuse + specular)* inRadiance * cosTheta;
+  
+
+  return diffuse* inRadiance * cosTheta;
 }
 
 vec3 directLight(int i, vec3 albedo){
