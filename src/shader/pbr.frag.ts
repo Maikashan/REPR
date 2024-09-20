@@ -43,7 +43,7 @@ vec3 calcPointLight(vec3 to_light, float d, int i)
 }
 
 vec3 calcDirectLight(vec3 to_light, int i){
-  return uDirectLights[i].color * uDirectLights[i].intensity; //* max(dot(vNormalWS, to_light),0.0); 
+  return uDirectLights[i].color * uDirectLights[i].intensity;
 }
 
 vec3 tone_mapping(vec3 col){
@@ -55,7 +55,7 @@ vec3 diffuse_component(vec3 albedo){
 }
 
 vec3 fresnel_shlick(vec3 f0, vec3 w_i, vec3 w_o){
-  vec3 h = normalize(w_i + w_o);
+  vec3 h = (w_i + w_o) /length(w_i + w_o) ;
   float WOdotH = dot(w_o, h);
   return f0 + (1.0 - f0) * pow(1.0 - WOdotH, 5.0);
 }
@@ -94,17 +94,16 @@ vec4 LinearTosRGB( in vec4 value ) {
 }
 
 
+// Demander au prof si c'est normal si metalness == 0 et roughness == 0 -> noir
 vec3 pointLight(int i, vec3 albedo){
 
-  vec3 to_light = uPointLights[i].pos - vWorldPos;
+  vec3 to_light =  uPointLights[i].pos - vWorldPos;
   float d = length(to_light);
   vec3 w_i = normalize(to_light);
   vec3 w_o = ViewDirectionWS;
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, w_i, w_o);
   vec3 specular = ks * specular_component(w_i, w_o);
-  if (specular_component(w_i, w_o) <= 0.000001 && ks.x >= 0.9)
-    return vec3(255.0,0.0,0.0);
   vec3 diffuse = diffuse_component(albedo) * (1.0 - ks);
   vec3 inRadiance = calcPointLight(w_i,d,i);
   float cosTheta = dot(vNormalWS, w_i);
