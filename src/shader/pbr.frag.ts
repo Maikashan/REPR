@@ -36,6 +36,7 @@ uniform PointLight uPointLights[4];
 uniform DirectLight uDirectLights[2];
 uniform sampler2D uTextureDiffuse;
 uniform sampler2D uTextureSpecular;
+uniform sampler2D uTextureBRDF;
 uniform bool uIndirect;
 uniform bool uDirect;
 
@@ -125,17 +126,17 @@ vec3 getFromTexture(sampler2D ourTexture, vec3 vector){
   return RGBMDecode(texture(ourTexture, normalized_polar_vector));
 }
 
-vec3 reflected(vec3 w_i){
+vec3 computeReflected(vec3 w_i){
   // return w_i - 2 * vNormalWS * max(dot(w_i, vNormalWS),0.0);
   return 2.0 * vNormalWS * max(dot(w_i, vNormalWS),0.0) - w_i;
 }
 
 vec2 computeRoughnessLevel(float roughness){
   vec2 res = vec2(0.0,-1.0);
-  float pad = 1.0 / 6.0;
-  float i = 1.0;
+  float pad = 1.0;
+  float i = 6.0;
   // Compute the lower level (or the exact level)
-  while (i > pad + EPSILON && i > roughness + EPSILON)
+  while (i > pad + EPSILON && i > roughness * 6.0 + EPSILON)
     i-=pad;
   res.x = i;
   // If we are not on an exact boundary or at the smallest level, get a second level
@@ -144,12 +145,48 @@ vec2 computeRoughnessLevel(float roughness){
   return res;
 }
 
-vec2 computeUVFromRoughness(float roughness, vec3 vector){
-  vec2 polar_vector = cartesianToPolar(vector);
-  vec2 normalized_polar_vector = remapPolar(polar_vector);
-  return vec2(0.0,0.0);
+// We assume the values in init are in the range [0,1]
+float remapValues(float init, float low, float top){
+  float res = low + (init * (top - low));
+  return res;
 }
 
+vec3 getFromRoughnessTexture(sampler2D our_texture, vec2 uv, float lvl){
+  float height = 0.5;
+  float begin_y = 0.0;
+  float width = 1.0;
+  float step_btw_lvl = 0.5;
+  for (float i = 6.0; i >= lvl + EPSILON; i--){
+    width = step_btw_lvl;
+    step_btw_lvl /= 2.0;
+    begin_y = height;
+    height += step_btw_lvl;
+  }
+  vec2 new_uv = vec2(remapValues(uv.x, 0.0, width), remapValues(uv.y, begin_y, height));
+  return RGBMDecode(texture(our_texture, new_uv));
+}
+
+
+vec3 computePrefilteredSpec(float roughness, vec3 reflected){
+  vec2 polar_vector = cartesianToPolar(reflected);
+  vec2 normalized_polar_vector = remapPolar(polar_vector);
+  vec2 level = computeRoughnessLevel(roughness);
+  vec3 res = getFromRoughnessTexture(uTextureSpecular, normalized_polar_vector, level.x);
+  if (level.y > -1.0 + EPSILON){
+    vec3 second_level = getFromRoughnessTexture(uTextureSpecular, normalized_polar_vector, level.x);
+    float pos = roughness * 6.0;
+    res = (pos - level.x) * res + (level.y - pos) * second_level;
+  }
+  return res;
+}
+
+vec2 computeBRDFSpec(vec3 w_i, float roughness){
+  float u = max(dot(w_i, vNormalWS),0.0);
+  float v = roughness;
+  vec2 uv = vec2(u,v);
+  vec4 brdf = sRGBToLinear(texture(uTextureBRDF, uv));
+  return brdf.xy;
+}
 
 
 vec3 pointLight(int i, vec3 albedo, bool indirect){
@@ -168,7 +205,10 @@ vec3 pointLight(int i, vec3 albedo, bool indirect){
   vec3 diffuse = vec3(0.0);
   if (indirect){
     diffuse = albedo * (1.0 - ks) * getFromTexture(uTextureDiffuse, vNormalWS);
-    specular = vec3(0.0);//ks * specular_component(w_i, w_o);
+    vec3 reflected = computeReflected(w_i);
+    vec3 prefilteredSpec = computePrefilteredSpec(uMaterial.roughness, reflected);
+    vec2 brdf = computeBRDFSpec(w_i, uMaterial.roughness);
+    specular = prefilteredSpec * (ks * brdf.r + brdf.g);
   }
   else
   {
