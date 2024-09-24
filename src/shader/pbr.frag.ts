@@ -119,11 +119,38 @@ vec2 remapPolar(vec2 polar){
   return vec2(phi, theta);
 }
 
-vec3 getFromTexture(sampler2D ourTexture, vec3 normal){
-  vec2 polar_normal = cartesianToPolar(normal);
-  vec2 normalized_polar_normal = remapPolar(polar_normal);
-  return RGBMDecode(texture(ourTexture, normalized_polar_normal));
+vec3 getFromTexture(sampler2D ourTexture, vec3 vector){
+  vec2 polar_vector = cartesianToPolar(vector);
+  vec2 normalized_polar_vector = remapPolar(polar_vector);
+  return RGBMDecode(texture(ourTexture, normalized_polar_vector));
 }
+
+vec3 reflected(vec3 w_i){
+  // return w_i - 2 * vNormalWS * max(dot(w_i, vNormalWS),0.0);
+  return 2.0 * vNormalWS * max(dot(w_i, vNormalWS),0.0) - w_i;
+}
+
+vec2 computeRoughnessLevel(float roughness){
+  vec2 res = vec2(0.0,-1.0);
+  float pad = 1.0 / 6.0;
+  float i = 1.0;
+  // Compute the lower level (or the exact level)
+  while (i > pad + EPSILON && i > roughness + EPSILON)
+    i-=pad;
+  res.x = i;
+  // If we are not on an exact boundary or at the smallest level, get a second level
+  if (i > pad + EPSILON && i + EPSILON < roughness)
+    res.y = i + pad;
+  return res;
+}
+
+vec2 computeUVFromRoughness(float roughness, vec3 vector){
+  vec2 polar_vector = cartesianToPolar(vector);
+  vec2 normalized_polar_vector = remapPolar(polar_vector);
+  return vec2(0.0,0.0);
+}
+
+
 
 vec3 pointLight(int i, vec3 albedo, bool indirect){
   // Computing the vector w_i and w_o, as well as the distance to the light
