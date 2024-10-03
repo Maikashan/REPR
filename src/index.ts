@@ -17,6 +17,7 @@ interface GUIProperties {
   light_pos_y: number;
   light_pos_z: number;
   indirect_lighting: boolean;
+  direct_lighting: boolean;
 }
 
 /**
@@ -94,7 +95,8 @@ class Application {
       light_pos_x: -5,
       light_pos_y: -5,
       light_pos_z: 5,
-      indirect_lighting: false,
+      indirect_lighting: true,
+      direct_lighting: true,
     };
 
     // Creates a GUI floating on the upper right side of the page.
@@ -108,6 +110,7 @@ class Application {
     gui.add(this._guiProperties, "light_pos_y");
     gui.add(this._guiProperties, "light_pos_z");
     gui.add(this._guiProperties, "indirect_lighting");
+    gui.add(this._guiProperties, "direct_lighting");
   }
 
   /**
@@ -129,7 +132,7 @@ class Application {
     }
 
     this._textureExample = await Texture2D.load(
-      "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
+      "assets/env/Alexs_Apt_2k-specular-RGBM.png"
     );
     if (this._textureExample !== null) {
       this._context.uploadTexture(this._textureExample);
@@ -217,6 +220,8 @@ class Application {
     this._uniforms["uPointLights[0].intensity"] = props.light_intensity;
 
     this._uniforms["uIndirect"] = props.indirect_lighting;
+
+    this._uniforms["uDirect"] = props.direct_lighting;
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
     const aspect =
       this._context.gl.drawingBufferWidth /
@@ -242,7 +247,7 @@ class Application {
         );
         const LS_to_WS = this._uniforms["uModel.LS_to_WS"] as mat4;
         mat4.fromTranslation(LS_to_WS, WsSphereTranslation);
-        this._uniforms["uMaterial.roughness"] = c * 0.15 + 0.01;
+        this._uniforms["uMaterial.roughness"] = c * 0.18 + 0.01;
         this._uniforms["uMaterial.metalness"] = r * 0.23 + 0.04;
 
         // Draw the triangles

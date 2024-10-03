@@ -115,7 +115,7 @@ vec2 cartesianToPolar(vec3 cartesian) {
 vec2 remapPolar(vec2 polar){
   float phi = polar.x;
   float theta = polar.y;
-  phi = (phi + M_PI) / (2.0 * M_PI);
+  phi =  (phi + M_PI) / (2.0 * M_PI);
   theta = (theta + (M_PI / 2.0)) / M_PI;
   return vec2(phi, theta);
 }
@@ -126,28 +126,23 @@ vec3 getFromTexture(sampler2D ourTexture, vec3 vector){
   return RGBMDecode(texture(ourTexture, normalized_polar_vector));
 }
 
-vec3 computeReflected(vec3 w_i){
-  // return w_i - 2 * vNormalWS * max(dot(w_i, vNormalWS),0.0);
-  return 2.0 * vNormalWS * max(dot(w_i, vNormalWS),0.0) - w_i;
-}
-
 vec2 computeRoughnessLevel(float roughness){
   vec2 res = vec2(0.0,-1.0);
   float pad = 1.0;
-  float i = 6.0;
+  float i = 1.0;
   // Compute the lower level (or the exact level)
-  while (i > pad + EPSILON && i > roughness * 6.0 + EPSILON)
-    i-=pad;
+  while (i < 6.0 && i < roughness * 6.0 )
+    i+=1.0;
   res.x = i;
   // If we are not on an exact boundary or at the smallest level, get a second level
-  if (i > pad + EPSILON && i + EPSILON < roughness)
-    res.y = i + pad;
+  if (i < 6.0 && i !=  roughness * 6.0)
+    res.y = i + 1.0;
   return res;
 }
 
 // We assume the values in init are in the range [0,1]
 float remapValues(float init, float low, float top){
-  float res = low + (init * (top - low));
+  float res = (init * (top - low)) + low;
   return res;
 }
 
@@ -156,13 +151,17 @@ vec3 getFromRoughnessTexture(sampler2D our_texture, vec2 uv, float lvl){
   float begin_y = 0.0;
   float width = 1.0;
   float step_btw_lvl = 0.5;
-  for (float i = 6.0; i >= lvl + EPSILON; i--){
+  for (float i = 1.0; i < lvl; i++){
     width = step_btw_lvl;
     step_btw_lvl /= 2.0;
     begin_y = height;
     height += step_btw_lvl;
   }
-  vec2 new_uv = vec2(remapValues(uv.x, 0.0, width), remapValues(uv.y, begin_y, height));
+  float remapped_x = remapValues(uv.x, 0.0, width);
+  float remapped_y = remapValues(uv.y, begin_y, height);
+  if (uv.y < 0.0)
+    return vec3(1.0,0.0,0.0);
+  vec2 new_uv = vec2(remapped_x, remapped_y);
   return RGBMDecode(texture(our_texture, new_uv));
 }
 
@@ -172,6 +171,7 @@ vec3 computePrefilteredSpec(float roughness, vec3 reflected){
   vec2 normalized_polar_vector = remapPolar(polar_vector);
   vec2 level = computeRoughnessLevel(roughness);
   vec3 res = getFromRoughnessTexture(uTextureSpecular, normalized_polar_vector, level.x);
+  return res;
   if (level.y > -1.0 + EPSILON){
     vec3 second_level = getFromRoughnessTexture(uTextureSpecular, normalized_polar_vector, level.x);
     float pos = roughness * 6.0;
@@ -188,8 +188,25 @@ vec2 computeBRDFSpec(vec3 w_i, float roughness){
   return brdf.xy;
 }
 
+vec3 indirectLighting(vec3 albedo){
+  vec3 w_o = ViewDirectionWS;
+  vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
+  vec3 ks = fresnel_shlick(f0, vNormalWS, w_o);
+  vec3 kd = (1.0 - ks) * (1.0 - uMaterial.metalness);
 
-vec3 pointLight(int i, vec3 albedo, bool indirect){
+  vec3 diffuse = albedo * kd * getFromTexture(uTextureDiffuse, vNormalWS);
+
+  vec3 reflected = -reflect(w_o, vNormalWS);
+  vec3 prefilteredSpec = computePrefilteredSpec(uMaterial.roughness, reflected);
+
+  vec2 brdf = computeBRDFSpec(w_o, uMaterial.roughness);
+  vec3 specular = prefilteredSpec * (ks * brdf.r + brdf.g);
+
+  return specular + diffuse;
+
+}
+
+vec3 pointLight(int i, vec3 albedo){
   // Computing the vector w_i and w_o, as well as the distance to the light
   vec3 to_light =  uPointLights[i].pos - vWorldPos;
   float d = length(to_light);
@@ -198,28 +215,15 @@ vec3 pointLight(int i, vec3 albedo, bool indirect){
   // Computing ks from the metalness
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, w_i, w_o);
-  // Computing the specular component
-
-  vec3 specular = vec3(0.0);
-  // Computing the diffuse component
-  vec3 diffuse = vec3(0.0);
-  if (indirect){
-    diffuse = albedo * (1.0 - ks) * getFromTexture(uTextureDiffuse, vNormalWS);
-    vec3 reflected = computeReflected(w_i);
-    vec3 prefilteredSpec = computePrefilteredSpec(uMaterial.roughness, reflected);
-    vec2 brdf = computeBRDFSpec(w_i, uMaterial.roughness);
-    specular = prefilteredSpec * (ks * brdf.r + brdf.g);
-  }
-  else
-  {
-    diffuse = albedo * (1.0 - ks) * diffuse_component(albedo);
-    specular = ks * specular_component(w_i, w_o);
-  }
+  vec3 kd = (1.0 - ks) * (1.0 - uMaterial.metalness);
+  vec3 diffuse = albedo * kd * diffuse_component(albedo);
+  vec3 specular = ks * specular_component(w_i, w_o);
+  
   // Computing the inRadiance
   vec3 inRadiance = calcPointLight(w_i,d,i);
   // Computing the impact of the light
   float cosTheta = max(dot(vNormalWS, w_i),0.0);
-  return (diffuse + specular)* inRadiance * cosTheta;
+  return (specular)* inRadiance * cosTheta;
 }
 
 vec3 directLight(int i, vec3 albedo){
@@ -241,13 +245,18 @@ void main()
   vec3 radiance = vec3(0.0);
 
   
-  for (int i = 0; i < 4; i++){
-
-  radiance += pointLight(i, albedo,uIndirect);
-  // **DO NOT** forget to apply gamma correction as last step.
-  // outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
+  if (uDirect)
+  {
+    for (int i = 0; i < 4; i++){
+      radiance += pointLight(i, albedo);
+    }
   }
+
+  if (uIndirect)
+    radiance += indirectLighting(albedo);
   radiance = tone_mapping(radiance);
+
+  // **DO NOT** forget to apply gamma correction as last step.
   outFragColor.rgba = LinearTosRGB(vec4(radiance, 1.0));
   
 }
