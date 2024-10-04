@@ -31,14 +31,25 @@ struct DirectLight{
   float intensity;
 };
 
+struct Direct{
+  bool diffuse;
+  bool specular;
+};
+
+struct Indirect{
+  bool diffuse;
+  bool specular;
+};
+
 uniform Material uMaterial;
 uniform PointLight uPointLights[4];
 uniform DirectLight uDirectLights[2];
 uniform sampler2D uTextureDiffuse;
 uniform sampler2D uTextureSpecular;
 uniform sampler2D uTextureBRDF;
-uniform bool uIndirect;
-uniform bool uDirect;
+
+uniform Direct uIndirect;
+uniform Indirect uDirect;
 
 
 vec3 calcPointLight(vec3 to_light, float d, int i)
@@ -189,24 +200,39 @@ vec2 computeBRDFSpec(vec3 w_i, float roughness){
 }
 
 vec3 indirectLighting(vec3 albedo){
+
+  if (!uIndirect.diffuse && !uIndirect.specular)
+    return vec3(0.0);
+
   vec3 w_o = ViewDirectionWS;
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, vNormalWS, w_o);
   vec3 kd = (1.0 - ks) * (1.0 - uMaterial.metalness);
 
-  vec3 diffuse = albedo * kd * getFromTexture(uTextureDiffuse, vNormalWS);
+  vec3 diffuse = vec3(0.0);
 
-  vec3 reflected = -reflect(w_o, vNormalWS);
-  vec3 prefilteredSpec = computePrefilteredSpec(uMaterial.roughness, reflected);
+  if (uIndirect.diffuse)
+    diffuse = albedo * kd * getFromTexture(uTextureDiffuse, vNormalWS);
 
-  vec2 brdf = computeBRDFSpec(w_o, uMaterial.roughness);
-  vec3 specular = prefilteredSpec * (ks * brdf.r + brdf.g);
+  
+  vec3 specular = vec3(0.0);
+  if (uIndirect.specular)
+  {
+    vec3 reflected = -reflect(w_o, vNormalWS);
+    vec3 prefilteredSpec = computePrefilteredSpec(uMaterial.roughness, reflected);
+
+    vec2 brdf = computeBRDFSpec(w_o, uMaterial.roughness);
+    specular = prefilteredSpec * (ks * brdf.r + brdf.g);
+
+  }
 
   return specular + diffuse;
 
 }
 
 vec3 pointLight(int i, vec3 albedo){
+  if (!uDirect.diffuse && !uDirect.specular)
+    return vec3(0.0);
   // Computing the vector w_i and w_o, as well as the distance to the light
   vec3 to_light =  uPointLights[i].pos - vWorldPos;
   float d = length(to_light);
@@ -216,14 +242,20 @@ vec3 pointLight(int i, vec3 albedo){
   vec3 f0 = vec3(uMaterial.metalness, uMaterial.metalness, uMaterial.metalness);
   vec3 ks = fresnel_shlick(f0, w_i, w_o);
   vec3 kd = (1.0 - ks) * (1.0 - uMaterial.metalness);
-  vec3 diffuse = albedo * kd * diffuse_component(albedo);
-  vec3 specular = ks * specular_component(w_i, w_o);
+
+
+  vec3 diffuse = vec3(0.0);
+  if (uDirect.diffuse)
+    diffuse = albedo * kd * diffuse_component(albedo);
+  vec3 specular = vec3(0.0);
+  if (uDirect.specular)
+    specular = ks * specular_component(w_i, w_o);
   
   // Computing the inRadiance
   vec3 inRadiance = calcPointLight(w_i,d,i);
   // Computing the impact of the light
   float cosTheta = max(dot(vNormalWS, w_i),0.0);
-  return (specular)* inRadiance * cosTheta;
+  return (diffuse + specular)* inRadiance * cosTheta;
 }
 
 vec3 directLight(int i, vec3 albedo){
@@ -245,15 +277,11 @@ void main()
   vec3 radiance = vec3(0.0);
 
   
-  if (uDirect)
-  {
-    for (int i = 0; i < 4; i++){
-      radiance += pointLight(i, albedo);
-    }
+  for (int i = 0; i < 4; i++){
+    radiance += pointLight(i, albedo);
   }
 
-  if (uIndirect)
-    radiance += indirectLighting(albedo);
+  radiance += indirectLighting(albedo);
   radiance = tone_mapping(radiance);
 
   // **DO NOT** forget to apply gamma correction as last step.

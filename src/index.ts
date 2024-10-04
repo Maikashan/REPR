@@ -7,6 +7,7 @@ import { PBRShader } from "./shader/pbr-shader";
 import { Texture, Texture2D } from "./textures/texture";
 import { UniformType } from "./types";
 import { DirectionalLight, PointLight } from "./lights/lights";
+import { IBLDShader } from "./shader/ibld-shader";
 
 // GUI elements
 interface GUIProperties {
@@ -16,8 +17,10 @@ interface GUIProperties {
   light_pos_x: number;
   light_pos_y: number;
   light_pos_z: number;
-  indirect_lighting: boolean;
-  direct_lighting: boolean;
+  indirect_diffuse: boolean;
+  indirect_specular: boolean;
+  direct_diffuse: boolean;
+  direct_specular: boolean;
 }
 
 /**
@@ -95,8 +98,10 @@ class Application {
       light_pos_x: -5,
       light_pos_y: -5,
       light_pos_z: 5,
-      indirect_lighting: true,
-      direct_lighting: true,
+      indirect_specular: false,
+      indirect_diffuse: true,
+      direct_diffuse: false,
+      direct_specular: false,
     };
 
     // Creates a GUI floating on the upper right side of the page.
@@ -109,8 +114,13 @@ class Application {
     gui.add(this._guiProperties, "light_pos_x");
     gui.add(this._guiProperties, "light_pos_y");
     gui.add(this._guiProperties, "light_pos_z");
-    gui.add(this._guiProperties, "indirect_lighting");
-    gui.add(this._guiProperties, "direct_lighting");
+
+    var indirect = gui.addFolder("Indirect lighting");
+    indirect.add(this._guiProperties, "indirect_specular");
+    indirect.add(this._guiProperties, "indirect_diffuse");
+    var direct = gui.addFolder("Direct lighting");
+    direct.add(this._guiProperties, "direct_specular");
+    direct.add(this._guiProperties, "direct_diffuse");
   }
 
   /**
@@ -219,9 +229,11 @@ class Application {
 
     this._uniforms["uPointLights[0].intensity"] = props.light_intensity;
 
-    this._uniforms["uIndirect"] = props.indirect_lighting;
+    this._uniforms["uIndirect.diffuse"] = props.indirect_diffuse;
+    this._uniforms["uIndirect.specular"] = props.indirect_specular;
 
-    this._uniforms["uDirect"] = props.direct_lighting;
+    this._uniforms["uDirect.diffuse"] = props.direct_diffuse;
+    this._uniforms["uDirect.specular"] = props.direct_specular;
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
     const aspect =
       this._context.gl.drawingBufferWidth /
@@ -256,6 +268,12 @@ class Application {
     }
   }
 }
+
+
+function generateEnvironment(){
+
+}
+
 
 const canvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const app = new Application(canvas as HTMLCanvasElement);
