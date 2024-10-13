@@ -2,10 +2,11 @@ import { GUI } from "dat.gui";
 import { mat4, vec3 } from "gl-matrix";
 import { Camera } from "./camera";
 import { SphereGeometry } from "./geometries/sphere";
+import { PlaneGeometry} from "./geometries/plane";
 import { GLContext } from "./gl";
 import { PBRShader } from "./shader/pbr-shader";
 import { Texture, Texture2D } from "./textures/texture";
-import { UniformType } from "./types";
+import { PixelArray, UniformType } from "./types";
 import { DirectionalLight, PointLight } from "./lights/lights";
 import { IBLDShader } from "./shader/ibld-shader";
 
@@ -21,6 +22,7 @@ interface GUIProperties {
   indirect_specular: boolean;
   direct_diffuse: boolean;
   direct_specular: boolean;
+  use_drawn: boolean;
 }
 
 /**
@@ -31,9 +33,15 @@ interface GUIProperties {
 class Application {
   private _context: GLContext; // Context used to draw to the canvas
   private _shader: PBRShader;
+  private _ibldShader: IBLDShader;
   private _geometry: SphereGeometry;
+  private _ibldGeometry: PlaneGeometry;
   private _uniforms: Record<string, UniformType | Texture>;
-  private _textureExample: Texture2D<HTMLElement> | null;
+  private _textureDiffuse: Texture2D<HTMLElement> | null;
+  private _textureSpecular: Texture2D<HTMLElement> | null;
+  private _textureBRDF: Texture2D<HTMLElement> | null;
+  private _textureTarget : Texture2D<PixelArray> | null;
+  private _drawTexture: boolean;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
   private _point_lights: [PointLight, PointLight , PointLight, PointLight ];
@@ -44,7 +52,13 @@ class Application {
     this._camera = new Camera(0.0, 0.0, 30.0);
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
-    this._textureExample = null;
+    this._ibldGeometry = new PlaneGeometry();
+    this._ibldShader = new IBLDShader();
+    this._textureDiffuse= null;
+    this._textureSpecular= null;
+    this._textureBRDF= null;
+    this._textureTarget = null;
+    this._drawTexture = true;
     this._point_lights = [new PointLight(), new PointLight() , new PointLight(), new PointLight()];
     this._direct_lights = [new DirectionalLight(), new DirectionalLight() /*, new PointLight */];
     this._uniforms = {
@@ -102,6 +116,7 @@ class Application {
       indirect_diffuse: true,
       direct_diffuse: false,
       direct_specular: false,
+      use_drawn: false,
     };
 
     // Creates a GUI floating on the upper right side of the page.
@@ -114,6 +129,7 @@ class Application {
     gui.add(this._guiProperties, "light_pos_x");
     gui.add(this._guiProperties, "light_pos_y");
     gui.add(this._guiProperties, "light_pos_z");
+    gui.add(this._guiProperties, "use_drawn");
 
     var indirect = gui.addFolder("Indirect lighting");
     indirect.add(this._guiProperties, "indirect_specular");
@@ -127,36 +143,39 @@ class Application {
    * Initializes the application.
    */
   async init() {
+    
+    // We probably want to run the generate right here
+    await this.generateEnvironment();
+
     this._context.uploadGeometry(this._geometry);
     this._context.compileProgram(this._shader);
 
     // Example showing how to load a texture and upload it to GPU.
-    this._textureExample = await Texture2D.load(
+    this._textureDiffuse= await Texture2D.load(
       "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
     );
-    if (this._textureExample !== null) {
-      this._context.uploadTexture(this._textureExample);
+    if (this._textureDiffuse!== null) {
+      this._context.uploadTexture(this._textureDiffuse);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
-      this._uniforms["uTextureDiffuse"] = this._textureExample;
+      this._uniforms["uTextureDiffuse"] = this._textureDiffuse;
     }
 
-    this._textureExample = await Texture2D.load(
+    this._textureSpecular = await Texture2D.load(
       "assets/env/Alexs_Apt_2k-specular-RGBM.png"
     );
-    if (this._textureExample !== null) {
-      this._context.uploadTexture(this._textureExample);
-      this._uniforms["uTextureSpecular"] = this._textureExample;
+    if (this._textureSpecular !== null) {
+      this._context.uploadTexture(this._textureSpecular);
+      this._uniforms["uTextureSpecular"] = this._textureSpecular;
     }
 
-    this._textureExample = await Texture2D.load(
+    this._textureBRDF = await Texture2D.load(
       "assets/ggx-brdf-integrated.png"
     );
-    if (this._textureExample !== null) {
-      this._context.uploadTexture(this._textureExample);
-      this._uniforms["uTextureBRDF"] = this._textureExample;
+    if (this._textureBRDF !== null) {
+      this._context.uploadTexture(this._textureBRDF);
+      this._uniforms["uTextureBRDF"] = this._textureBRDF;
     }
-
     // Handle keyboard and mouse inputs to translate and rotate camera.
     canvas.addEventListener(
       "keydown",
@@ -183,6 +202,8 @@ class Application {
       this._camera.onPointerUp.bind(this._camera),
       true
     );
+
+    this._drawTexture = false;
   }
 
   /**
@@ -203,6 +224,8 @@ class Application {
    * Called at every loop, after the [[Application.update]] method.
    */
   render() {
+    if (this._drawTexture)
+      return;
     this._context.clear();
     this._context.setDepthTest(true);
 
@@ -234,11 +257,16 @@ class Application {
 
     this._uniforms["uDirect.diffuse"] = props.direct_diffuse;
     this._uniforms["uDirect.specular"] = props.direct_specular;
-    // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
-    const aspect =
+
+    this._uniforms["uUseDrawn"] = props.use_drawn;
+
+
+    let aspect =
       this._context.gl.drawingBufferWidth /
       this._context.gl.drawingBufferHeight;
+
     let WS_to_CS = this._uniforms["uCamera.WS_to_CS"] as mat4;
+
     mat4.multiply(
       WS_to_CS,
       this._camera.computeProjection(aspect),
@@ -267,16 +295,77 @@ class Application {
       }
     }
   }
+async generateEnvironment(){
+
+      this._context.uploadGeometry(this._ibldGeometry);
+      this._context.compileProgram(this._ibldShader);
+
+    // Loading the image to generate the Diffuse Texture
+    const initialTexture = await Texture2D.load(
+      "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
+    );
+    if (initialTexture !== null) {
+      // Upload the initial texture to the GPU
+      this._context.uploadTexture(initialTexture);
+      // Must pass it as an uniform
+      this._uniforms['uTextureInitial'] = initialTexture;
+
+      // Create a Texture2D<PixelArray> and upload it to the GPU  
+      var data = new Uint8Array(initialTexture.width * initialTexture.height * 4);
+      this._textureTarget = new Texture2D<PixelArray>(data, initialTexture.width, initialTexture.height, initialTexture.formatGL, initialTexture.internalFormatGL,this._context.gl.UNSIGNED_BYTE);
+      this._context.uploadTexture(this._textureTarget);
+
+      // Create a framebuffer and bind it
+      const framebuffer = this._context.gl.createFramebuffer();
+      this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, framebuffer);
+      
+      // Attach the created texture as the color output
+      this._context.setFramebufferTexture(this._textureTarget);
+
+      // Setting the viewport to match the size of the texture (i guess ? Not sure at all here)
+      this._context.setViewport(this._textureTarget.width, this._textureTarget.height);
+
+      // Launch a drawcall, after setting a geometry and compiled the saders
+
+      let WS_to_CS = this._uniforms["uCamera.WS_to_CS"] as mat4;
+      let aspect =
+      this._textureTarget.width / 
+      this._textureTarget.height;
+
+    mat4.multiply(
+      WS_to_CS,
+      this._camera.computeProjection(aspect),
+      this._camera.computeView()
+    );
+
+      console.log(this._uniforms["uCamera.WS_to_CS"]);
+      console.log(this._uniforms["uModel.LS_to_WS"]);
+      console.log(this._ibldGeometry.positions);
+      this._context.draw(this._ibldGeometry, this._ibldShader, this._uniforms);
+
+      this._context.uploadTexture(this._textureTarget);
+      this._uniforms["uTextureDiffuseGenerated"] = this._textureTarget;
+      console.log(this._textureTarget.data.findIndex((e) => e !== 0));  
+
+
+      // Rebinding to the default buffer
+      this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, null);
+
+      // Reset the viewort
+      this._context.resetViewport();
+    }
+
+      this._context.destroyGeometry(this._ibldGeometry);
+      this._context.destroyProgram(this._ibldShader);
+  }
 }
 
 
-function generateEnvironment(){
-
-}
 
 
 const canvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const app = new Application(canvas as HTMLCanvasElement);
+
 app.init();
 
 function animate() {
@@ -298,4 +387,4 @@ const resizeObserver = new ResizeObserver((entries) => {
   }
 });
 
-resizeObserver.observe(canvas);
+// resizeObserver.observe(canvas);

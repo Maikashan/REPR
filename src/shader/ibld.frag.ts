@@ -23,10 +23,11 @@ vec4 LinearTosRGB( in vec4 value ) {
 
 void main()
 {
+  outFragColor.rgba = vec4(1.0,0.0,0.0,1.0);
   // **DO NOT** forget to do all your computation in linear space.
-  vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
+  // vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
 
-  // **DO NOT** forget to apply gamma correction as last step.
-  outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
+  // // **DO NOT** forget to apply gamma correction as last step.
+  // outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
 }
 `;
