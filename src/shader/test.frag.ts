@@ -273,31 +273,34 @@ vec3 directLight(int i, vec3 albedo){
 void main()
 {
   // **DO NOT** forget to do all your computation in linear space.
-  vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
+  // vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
 
-  vec3 radiance = vec3(0.0);
+  // vec3 radiance = vec3(0.0);
 
   
-  for (int i = 0; i < 4; i++){
-    radiance += pointLight(i, albedo);
-  }
+  // for (int i = 0; i < 4; i++){
+  //   radiance += pointLight(i, albedo);
+  // }
 
-  radiance += indirectLighting(albedo);
-  radiance = tone_mapping(radiance);
+  // radiance += indirectLighting(albedo);
+  // radiance = tone_mapping(radiance);
 
-  outFragColor.rgba = vec4(0.0,0.0,0.0,1.0);
-  return;
+  // outFragColor.rgba = vec4(0.0,0.0,0.0,1.0);
+  // return;
   // **DO NOT** forget to apply gamma correction as last step.
-  for (float i = 0.0; i < 1.0; i+=0.01){
-    for (float j = 0.0; j < 1.0; j+=0.01){
-      vec4 color = texture(uTextureDiffuseGenerated, vec2(i, j));
-      if (color.b != 0.0 && color.g != 0.0 && color.r != 0.0 && color.a != 0.0){
-          outFragColor.rgba = vec4(0.0, 1.0,0.0,1.0);
-          return;
-      }
-    }
-  }
+  // outFragColor.rgba = vec4(0.0, 1.0,0.0,1.0);
+  // return;
+  // for (float i = 0.0; i < 1.0; i+=0.01){
+  //   for (float j = 0.0; j < 1.0; j+=0.01){
+  //     vec4 color = (texture(uTextureDiffuseGenerated, vec2(i, j)));
+  //     if (color.b != 0.0 || color.g != 0.0 || color.r != 0.0 || color.a != 0.0){
+  //         outFragColor.rgba = vec4(1.0,0.0,0.0,1.0);
+  //         return;
+  //     }
+  //   }
+  // }
   outFragColor.rgba = texture(uTextureDiffuseGenerated, vec2(0, 0));  //LinearTosRGB(vec4(radiance, 1.0));
+  // outFragColor.rgba = vec4(1.0,0.0,0.0,1.0);
   
 }
 `;

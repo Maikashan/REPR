@@ -377,6 +377,7 @@ export class GLContext {
       console.error('Attempting to use a non-compiled program.');
       return;
     } else if (programCache === null) {
+      console.error('Attempting to use a program that failed to compile.');
       return;
     }
 

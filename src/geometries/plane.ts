@@ -12,7 +12,7 @@ import { Geometry } from './geometry';
 export class PlaneGeometry extends Geometry {
   public constructor(width = 1, height = 1) {
     const positions = new Float32Array([
-      -0.5, -0.5, 0, 0.5, -0.5, 0.0, -0.5, 0.5, 0.0, 0.5, 0.5, 0.0
+      -1.0, -1.0, 0, 1.0, -1.0, 0.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0
     ]);
     const normals = new Float32Array([
       0.0, 0.0, -1, 0.0, 0.0, -1, 0.0, 0.0, -1, 0.0, 0.0, -1

@@ -40,6 +40,7 @@ class Application {
   private _textureDiffuse: Texture2D<HTMLElement> | null;
   private _textureSpecular: Texture2D<HTMLElement> | null;
   private _textureBRDF: Texture2D<HTMLElement> | null;
+  private _initialTexture: Texture2D<HTMLElement> | null;
   private _textureTarget : Texture2D<PixelArray> | null;
   private _drawTexture: boolean;
   private _camera: Camera;
@@ -57,6 +58,7 @@ class Application {
     this._textureDiffuse= null;
     this._textureSpecular= null;
     this._textureBRDF= null;
+    this._initialTexture = null;
     this._textureTarget = null;
     this._drawTexture = true;
     this._point_lights = [new PointLight(), new PointLight() , new PointLight(), new PointLight()];
@@ -144,7 +146,6 @@ class Application {
    */
   async init() {
     
-    // We probably want to run the generate right here
     await this.generateEnvironment();
 
     this._context.uploadGeometry(this._geometry);
@@ -297,22 +298,35 @@ class Application {
   }
 async generateEnvironment(){
 
-      this._context.uploadGeometry(this._ibldGeometry);
-      this._context.compileProgram(this._ibldShader);
+    this._context.uploadGeometry(this._ibldGeometry);
+    this._context.compileProgram(this._ibldShader);
 
     // Loading the image to generate the Diffuse Texture
-    const initialTexture = await Texture2D.load(
-      "assets/env/Alexs_Apt_2k-diffuse-RGBM.png"
+    // this._initialTexture = await Texture2D.load(
+    //   "assets/env/moonlit_golf_2k-RGBM.png"
+    // );
+    // this._initialTexture = await Texture2D.load(
+    //   "assets/test.png"
+    // );
+    this._initialTexture = await Texture2D.load(
+      "assets/env/zwartkops_straight_morning_2k-RGBM.png"
     );
-    if (initialTexture !== null) {
+    // this._initialTexture = await Texture2D.load(
+    //   "assets/env/thatch_chapel_2k-RGBM.png"
+    // );
+    if (this._initialTexture !== null) {
       // Upload the initial texture to the GPU
-      this._context.uploadTexture(initialTexture);
+      this._context.uploadTexture(this._initialTexture);
       // Must pass it as an uniform
-      this._uniforms['uTextureInitial'] = initialTexture;
+      this._uniforms['uTextureInitial'] = this._initialTexture;
+      this._uniforms['uWidth'] = this._initialTexture.width;
+      this._uniforms['uHeight'] = this._initialTexture.height;
+      console.log(this._initialTexture.width);
+      console.log(this._initialTexture.height);
 
       // Create a Texture2D<PixelArray> and upload it to the GPU  
-      var data = new Uint8Array(initialTexture.width * initialTexture.height * 4);
-      this._textureTarget = new Texture2D<PixelArray>(data, initialTexture.width, initialTexture.height, initialTexture.formatGL, initialTexture.internalFormatGL,this._context.gl.UNSIGNED_BYTE);
+      let data : PixelArray = new Uint8Array(this._initialTexture.width * this._initialTexture.height * 4);
+      this._textureTarget = new Texture2D<PixelArray>(data, this._initialTexture.width, this._initialTexture.height, this._initialTexture.formatGL, this._initialTexture.internalFormatGL,this._context.gl.UNSIGNED_BYTE);
       this._context.uploadTexture(this._textureTarget);
 
       // Create a framebuffer and bind it
@@ -322,15 +336,60 @@ async generateEnvironment(){
       // Attach the created texture as the color output
       this._context.setFramebufferTexture(this._textureTarget);
 
-      // Setting the viewport to match the size of the texture (i guess ? Not sure at all here)
-      this._context.setViewport(this._textureTarget.width, this._textureTarget.height);
+      // // Setting the viewport to match the size of the texture (i guess ? Not sure at all here)
+      let height = this._textureTarget.height;
+      let width = this._textureTarget.width;
+      this._context.setViewport(width, height);
+
+
+    //   let WS_to_CS = this._uniforms["uCamera.WS_to_CS"] as mat4;
+    //   let aspect =
+    //   this._textureTarget.width / 
+    //   this._textureTarget.height;
+
+    // mat4.multiply(
+    //   WS_to_CS,
+    //   this._camera.computeProjection(aspect),
+    //   this._camera.computeView()
+    // );
 
       // Launch a drawcall, after setting a geometry and compiled the saders
+      this._context.draw(this._ibldGeometry, this._ibldShader, this._uniforms);
+
+      const new_data = new Uint8Array(4 * width * height);
+
+      if (this._context.gl.checkFramebufferStatus(this._context.gl.FRAMEBUFFER) === this._context.gl.FRAMEBUFFER_COMPLETE) {
+        this._context.gl.readPixels(0, 0, width, height, this._textureTarget.formatGL, this._textureTarget.typeGL, new_data);
+      }
+
+      this._textureTarget = new Texture2D<PixelArray>(new_data, this._initialTexture.width, this._initialTexture.height, this._initialTexture.formatGL, this._initialTexture.internalFormatGL,this._context.gl.UNSIGNED_BYTE);
+
+      this._context.uploadTexture(this._textureTarget);
+
+      this._uniforms["uTextureDiffuseGenerated"] = this._textureTarget;
+
+      this._context.clear();
+    // Rebinding to the default buffer
+      this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, null);
+
+  // Reset the viewort
+      this.resize();
+    }
+
+      this._context.destroyGeometry(this._ibldGeometry);
+      this._context.destroyProgram(this._ibldShader);
+  }
+
+  debug_render() {
+    if (this._drawTexture || this._initialTexture === null)
+      return;
+    this._context.clear();
+    this._context.setDepthTest(true);
 
       let WS_to_CS = this._uniforms["uCamera.WS_to_CS"] as mat4;
-      let aspect =
-      this._textureTarget.width / 
-      this._textureTarget.height;
+      const aspect=
+      this._initialTexture.height/ 
+      this._initialTexture.width;
 
     mat4.multiply(
       WS_to_CS,
@@ -338,29 +397,10 @@ async generateEnvironment(){
       this._camera.computeView()
     );
 
-      console.log(this._uniforms["uCamera.WS_to_CS"]);
-      console.log(this._uniforms["uModel.LS_to_WS"]);
-      console.log(this._ibldGeometry.positions);
-      this._context.draw(this._ibldGeometry, this._ibldShader, this._uniforms);
-
-      this._context.uploadTexture(this._textureTarget);
-      this._uniforms["uTextureDiffuseGenerated"] = this._textureTarget;
-      console.log(this._textureTarget.data.findIndex((e) => e !== 0));  
-
-
-      // Rebinding to the default buffer
-      this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, null);
-
-      // Reset the viewort
-      this._context.resetViewport();
-    }
-
-      this._context.destroyGeometry(this._ibldGeometry);
-      this._context.destroyProgram(this._ibldShader);
+    this._context.draw(this._ibldGeometry, this._ibldShader, this._uniforms);
+    this.resize();
   }
 }
-
-
 
 
 const canvas = document.getElementById("main-canvas") as HTMLCanvasElement;
@@ -371,6 +411,9 @@ app.init();
 function animate() {
   app.update();
   app.render();
+  //////////////DEBUG////////////////////:
+  // app.debug_render();
+  //////////////////////////////////////
   window.requestAnimationFrame(animate);
 }
 animate();
@@ -387,4 +430,4 @@ const resizeObserver = new ResizeObserver((entries) => {
   }
 });
 
-// resizeObserver.observe(canvas);
+resizeObserver.observe(canvas);

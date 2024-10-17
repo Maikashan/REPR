@@ -51,6 +51,9 @@ uniform sampler2D uTextureBRDF;
 uniform Direct uIndirect;
 uniform Indirect uDirect;
 
+uniform bool uUseDrawn;
+uniform sampler2D uTextureDiffuseGenerated;
+
 
 vec3 calcPointLight(vec3 to_light, float d, int i)
 {
@@ -191,8 +194,8 @@ vec3 computePrefilteredSpec(float roughness, vec3 reflected){
   return res;
 }
 
-vec2 computeBRDFSpec(vec3 w_i, float roughness){
-  float u = max(dot(w_i, vNormalWS),0.0);
+vec2 computeBRDFSpec(vec3 w_o, float roughness){
+  float u = max(dot(w_o, vNormalWS),0.0);
   float v = roughness;
   vec2 uv = vec2(u,v);
   vec4 brdf = sRGBToLinear(texture(uTextureBRDF, uv));
@@ -212,7 +215,13 @@ vec3 indirectLighting(vec3 albedo){
   vec3 diffuse = vec3(0.0);
 
   if (uIndirect.diffuse)
-    diffuse = albedo * kd * getFromTexture(uTextureDiffuse, vNormalWS);
+  {
+    diffuse = albedo * kd;
+    if (!uUseDrawn)
+      diffuse = diffuse * getFromTexture(uTextureDiffuse, vNormalWS);
+    else
+      diffuse = diffuse * getFromTexture(uTextureDiffuseGenerated, vNormalWS);
+  }
 
   
   vec3 specular = vec3(0.0);

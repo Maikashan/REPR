@@ -138,12 +138,12 @@ export class Texture2D<T extends PixelArray | HTMLElement> extends Texture {
    *
    * @private
    */
-  private _data: T;
+  private _data: T | null;
   private _width: number;
   private _height: number;
 
   public constructor(
-    data: T,
+    data: T | null,
     width: number,
     height: number,
     formatGL: number,
@@ -163,7 +163,7 @@ export class Texture2D<T extends PixelArray | HTMLElement> extends Texture {
   }
 
   /** Pixel buffer */
-  public get data(): T {
+  public get data(): T | null {
     return this._data;
   }
 

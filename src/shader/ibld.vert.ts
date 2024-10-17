@@ -34,9 +34,11 @@ uniform Model uModel;
 void main()
 {
   vec4 positionLocal = vec4(in_position, 1.0);
-  gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
-  vWorldPos = (uModel.LS_to_WS * positionLocal).xyz;
-  vNormalWS = normalize(in_normal);
-  ViewDirectionWS = normalize(uCameraPos - vWorldPos);
+  // gl_Position =  positionLocal;
+  // vWorldPos = positionLocal.xyz;
+  gl_Position =uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
+  vWorldPos = vec3(positionLocal.xy,1.0); //(uModel.LS_to_WS * positionLocal).xyz;
+  // vNormalWS = normalize(in_normal);
+  // ViewDirectionWS = normalize(uCameraPos - vWorldPos);
 }
 `;
