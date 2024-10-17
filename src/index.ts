@@ -114,7 +114,7 @@ class Application {
       light_pos_x: -5,
       light_pos_y: -5,
       light_pos_z: 5,
-      indirect_specular: false,
+      indirect_specular: true,
       indirect_diffuse: true,
       direct_diffuse: false,
       direct_specular: false,

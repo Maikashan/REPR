@@ -66,9 +66,9 @@ void main()
 
   int count = 0;
 
-  for (float phi = -0.5 * M_PI; phi <  0.5 * M_PI; phi+=0.1)
+  for (float phi = -0.5 * M_PI; phi <  0.5 * M_PI; phi+=0.05)
   {
-    for (float theta = -0.5 * M_PI; theta < 0.5 * M_PI; theta += 0.1)
+    for (float theta = -0.5 * M_PI; theta < 0.5 * M_PI; theta += 0.05)
     {
       vec2 pol = N * M_PI + vec2(theta, phi);
       vec3 direction = vec3(cos(pol.x) * cos(pol.y), sin(pol.y), sin(pol.x) * cos(pol.y));
